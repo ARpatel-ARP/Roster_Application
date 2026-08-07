@@ -126,21 +126,76 @@ export const createEmployee = async (req, res) => {
 };
 
 export const getEmployees = async (req, res) => {
-    try {
-        const employees = await Employee.find().sort({ createdAt: -1 });
+  try {
+    const { search, team, status, page = 1, limit = 10 } = req.query;
 
-        return res.status(200).json({
-            success: true,
-            count: employees.length,
-            data: employees,
-        });
-    } catch (error) {
-        console.error('Get employees error:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Server error while fetching employees',
-        });
+    const filter = {};
+
+    // ---- Search across name, employeeId, email ----
+    if (search) {
+      const searchRegex = new RegExp(search, 'i'); // case-insensitive partial match
+      filter.$or = [
+        { name: searchRegex },    // if name contains search
+        { employeeId: searchRegex },    // if eID contains search
+        { email: searchRegex },    // if Email contains search
+      ];
     }
+
+    // ---- Filter by team (exact, case-insensitive) ----
+    if (team) {
+      filter.team = new RegExp(`^${team}$`, 'i');  // ^ means start, $ end of the string
+    }
+
+    // ---- Filter by status (exact, case-insensitive) ----
+    if (status) {
+      filter.status = new RegExp(`^${status}$`, 'i');
+    }
+
+    // ---- Pagination ----
+    const pageNum = Math.max(parseInt(page, 10) || 1, 1);
+    const limitNum = Math.max(parseInt(limit, 10) || 10, 1);
+    const skip = (pageNum - 1) * limitNum;
+
+    const [employees, total] = await Promise.all([
+      Employee.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum),
+      Employee.countDocuments(filter),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      count: employees.length,
+      total,
+      page: pageNum,
+      totalPages: Math.ceil(total / limitNum),
+      data: employees,
+    });
+  } catch (error) {
+    console.error('Get employees error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error while fetching employees',
+    });
+  }
+};
+
+export const getDistinctTeams = async (req, res) => {
+  try {
+    const teams = await Employee.distinct('team');
+
+    return res.status(200).json({
+      success: true,
+      data: teams.filter(Boolean).sort(), // remove empty/null, sort alphabetically
+    });
+  } catch (error) {
+    console.error('Get distinct teams error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error while fetching teams',
+    });
+  }
 };
 
 // @route  GET /api/employees/:id
