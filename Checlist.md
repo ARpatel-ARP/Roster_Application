@@ -30,13 +30,13 @@
 
 ## 2. TEAM MANAGEMENT
 
-- [ ] Team CRUD APIs
-- [ ] Employee ↔ Team assignment
-- [ ] Get team members
-- [ ] Team validation
-- [ ] Error handling
-- [ ] Postman testing
-- [ ] **Team Backend DONE**
+- [x] Team CRUD APIs
+- [x] Employee ↔ Team assignment
+- [x] Get team members
+- [x] Team validation
+- [x] Error handling
+- [x] Postman testing
+- [x] **Team Backend DONE**
 
 ## 3. SHIFT MANAGEMENT
 
