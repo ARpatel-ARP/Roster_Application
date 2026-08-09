@@ -1,7 +1,11 @@
 import Employee from '../models/Employee.js';
-import { VALID_TEAMS } from '../constants/team.js';
+import {
+  isValidObjectId,
+  validateEmployeePayload,
+} from '../utils/validators.js';
 import Leave from '../models/Leave.js';
 import { RosterEntry } from '../models/Roster.js';
+import Team from "../models/Team.js";
 
 // @route  POST /api/employees
 // @access Private (verifyJWT)
@@ -65,10 +69,26 @@ export const createEmployee = async (req, res) => {
         }
 
         // 5. Validate team (if provided) against allowed list
-        if (team && !VALID_TEAMS.includes(team)) {
+        if (!isValidObjectId(team)) {
             return res.status(400).json({
                 success: false,
-                message: `Invalid team. Must be one of: ${VALID_TEAMS.join(', ')}`,
+                message: 'Invalid team id',
+            });
+        }
+
+        const teamExists = await Team.findById(team);
+
+        if (!teamExists) {
+            return res.status(400).json({
+                success: false,
+                message: `Team with id '${team}' does not exist`,
+            });
+        }
+
+        if (teamExists.status !== 'active') {
+            return res.status(400).json({
+                success: false,
+                message: `Team with id '${team}' is inactive`,
             });
         }
 
@@ -126,71 +146,83 @@ export const createEmployee = async (req, res) => {
 };
 
 export const getEmployees = async (req, res) => {
-  try {
-    const { search, team, status, page = 1, limit = 10 } = req.query;
+    try {
+        const { search, team, status, page = 1, limit = 10 } = req.query;
 
-    const filter = {};
+        const filter = {};
 
-    // ---- Search across name, employeeId, email ----
-    if (search) {
-      const searchRegex = new RegExp(search, 'i'); // case-insensitive partial match
-      filter.$or = [
-        { name: searchRegex },    // if name contains search
-        { employeeId: searchRegex },    // if eID contains search
-        { email: searchRegex },    // if Email contains search
-      ];
+        // ---- Search across name, employeeId, email ----
+        if (search) {
+            const searchRegex = new RegExp(search, 'i'); // case-insensitive partial match
+            filter.$or = [
+                { name: searchRegex },    // if name contains search
+                { employeeId: searchRegex },    // if eID contains search
+                { email: searchRegex },    // if Email contains search
+            ];
+        }
+
+        // ---- Filter by team (exact, case-insensitive) ----
+        if (team) {
+            if (!isValidObjectId(team)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid team id',
+                });
+            }
+
+            filter.team = team;
+        }
+
+        // ---- Filter by status (exact, case-insensitive) ----
+        if (status) {
+            filter.status = new RegExp(`^${status}$`, 'i');
+        }
+
+        // ---- Pagination ----
+        const pageNum = Math.max(parseInt(page, 10) || 1, 1);
+        const limitNum = Math.max(parseInt(limit, 10) || 10, 1);
+        const skip = (pageNum - 1) * limitNum;
+
+        const [employees, total] = await Promise.all([
+            Employee.find(filter)
+    .populate('team', 'name status')
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limitNum),
+            Employee.countDocuments(filter),
+        ]);
+
+        return res.status(200).json({
+            success: true,
+            count: employees.length,
+            total,
+            page: pageNum,
+            totalPages: Math.ceil(total / limitNum),
+            data: employees,
+        });
+    } catch (error) {
+        console.error('Get employees error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Server error while fetching employees',
+        });
     }
-
-    // ---- Filter by team (exact, case-insensitive) ----
-    if (team) {
-      filter.team = new RegExp(`^${team}$`, 'i');  // ^ means start, $ end of the string
-    }
-
-    // ---- Filter by status (exact, case-insensitive) ----
-    if (status) {
-      filter.status = new RegExp(`^${status}$`, 'i');
-    }
-
-    // ---- Pagination ----
-    const pageNum = Math.max(parseInt(page, 10) || 1, 1);
-    const limitNum = Math.max(parseInt(limit, 10) || 10, 1);
-    const skip = (pageNum - 1) * limitNum;
-
-    const [employees, total] = await Promise.all([
-      Employee.find(filter)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limitNum),
-      Employee.countDocuments(filter),
-    ]);
-
-    return res.status(200).json({
-      success: true,
-      count: employees.length,
-      total,
-      page: pageNum,
-      totalPages: Math.ceil(total / limitNum),
-      data: employees,
-    });
-  } catch (error) {
-    console.error('Get employees error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Server error while fetching employees',
-    });
-  }
 };
 
 export const getDistinctTeams = async (req, res) => {
   try {
-    const teams = await Employee.distinct('team');
+    const teams = await Team.find(
+      { status: 'active' },
+      '_id name'
+    ).sort({ name: 1 });
 
     return res.status(200).json({
       success: true,
-      data: teams.filter(Boolean).sort(), // remove empty/null, sort alphabetically
+      data: teams,
     });
   } catch (error) {
-    console.error('Get distinct teams error:', error);
+    console.error('Get teams error:', error);
+
     return res.status(500).json({
       success: false,
       message: 'Server error while fetching teams',
@@ -204,7 +236,8 @@ export const getEmployeeById = async (req, res) => {
     try {
         const { id } = req.params;
 
-        const employee = await Employee.findById(id);
+        const employee = await Employee.findById(id)
+  .populate("team", "_id name status");
 
         if (!employee) {
             return res.status(404).json({
@@ -258,7 +291,7 @@ export const updateEmployee = async (req, res) => {
         const { id } = req.params;
 
         // ---- 1. Validate ID exists ----
-        
+
         const employee = await Employee.findById(id);
         if (!employee) {
             return res.status(404).json({
@@ -268,7 +301,7 @@ export const updateEmployee = async (req, res) => {
         }
 
         // ---- 2. Build update object from only allowed fields ----
-        
+
         const updates = {};
         for (const field of ALLOWED_UPDATE_FIELDS) {
             if (req.body[field] !== undefined) {
@@ -284,7 +317,7 @@ export const updateEmployee = async (req, res) => {
         }
 
         // ---- 3. Validate email format if being changed ----
-        
+
         if (updates.email !== undefined) {
             const emailRegex = /^\S+@\S+\.\S+$/;
             if (!emailRegex.test(updates.email)) {
@@ -296,7 +329,7 @@ export const updateEmployee = async (req, res) => {
             updates.email = updates.email.toLowerCase();
 
             // Prevent duplicate email (excluding this employee's own record)
-            
+
             const emailConflict = await Employee.findOne({
                 email: updates.email,
                 _id: { $ne: id },
@@ -310,7 +343,7 @@ export const updateEmployee = async (req, res) => {
         }
 
         // ---- 4. Validate preferredShift enum if provided ----
-        
+
         const validShifts = ['Morning', 'Evening', 'Night', 'General'];
 
         if (updates.preferredShift !== undefined && !validShifts.includes(updates.preferredShift)) {
@@ -321,7 +354,7 @@ export const updateEmployee = async (req, res) => {
         }
 
         // ---- 5. Validate status enum if provided ----
-       
+
         const validStatuses = ['Active', 'Inactive', 'On Leave'];
 
         if (updates.status !== undefined && !validStatuses.includes(updates.status)) {
@@ -336,7 +369,31 @@ export const updateEmployee = async (req, res) => {
         // so partial-form submissions from the frontend don't fail unnecessarily.
 
         // ---- 6. Apply update ----
-       
+        if (updates.team !== undefined) {
+    if (!isValidObjectId(updates.team)) {
+        return res.status(400).json({
+            success: false,
+            message: 'Invalid team id',
+        });
+    }
+
+    const teamExists = await Team.findById(updates.team);
+
+    if (!teamExists) {
+        return res.status(400).json({
+            success: false,
+            message: `Team with id '${updates.team}' does not exist`,
+        });
+    }
+
+    if (teamExists.status !== 'active') {
+        return res.status(400).json({
+            success: false,
+            message: `Team with id '${updates.team}' is inactive`,
+        });
+    }
+}
+
         const updatedEmployee = await Employee.findByIdAndUpdate(id, updates, {
             new: true, // return the updated document
             runValidators: true, // enforce schema-level validation (enums, required, etc.)
@@ -374,59 +431,66 @@ export const updateEmployee = async (req, res) => {
 };
 
 export const deleteEmployee = async (req, res) => {
-  try {
-    const { id } = req.params;
+    try {
+        const { id } = req.params;
 
-    const employee = await Employee.findById(id);
-    if (!employee) {
-      return res.status(404).json({
-        success: false,
-        message: 'Employee not found',
-      });
+        const employee = await Employee.findById(id)
+    .populate('team', 'name status');
+        if (!employee) {
+            return res.status(404).json({
+                success: false,
+                message: 'Employee not found',
+            });
+        }
+
+        // ---- Check references before allowing delete ----
+
+        // 1. Is this employee referenced in any Leave record?
+        const leaveCount = await Leave.countDocuments({ employee: id });
+
+        // 2. Is this employee referenced in any Roster entry?
+        const rosterCount = await RosterEntry.countDocuments({ employee: id });
+
+        // 3. Is this employee a manager on one or more teams?
+        const managedTeamsCount = await Team.countDocuments({ manager: id });
+
+        if (leaveCount > 0 || rosterCount > 0 || managedTeamsCount > 0) {
+            return res.status(409).json({
+                success: false,
+                message:
+                    managedTeamsCount > 0
+                        ? 'Employee manages one or more teams. Remove/reassign manager first.'
+                        : 'Cannot delete employee: existing records reference this employee.',
+                details: {
+                    leaveRecords: leaveCount,
+                    rosterEntries: rosterCount,
+                    managedTeams: managedTeamsCount,
+                },
+                suggestion:
+                    'Consider deactivating this employee instead (PUT /api/employees/:id with { "status": "Inactive" }) to preserve historical data.',
+            });
+        }
+
+        // No references found — safe to hard delete
+        await Employee.findByIdAndDelete(id);
+
+        return res.status(200).json({
+            success: true,
+            message: 'Employee deleted successfully',
+        });
+    } catch (error) {
+        console.error('Delete employee error:', error);
+
+        if (error.name === 'CastError') {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid employee ID format',
+            });
+        }
+
+        return res.status(500).json({
+            success: false,
+            message: 'Server error while deleting employee',
+        });
     }
-
-    // ---- Check references before allowing delete ----
-
-    // 1. Is this employee referenced in any Leave record?
-    const leaveCount = await Leave.countDocuments({ employee: id });
-
-    // 2. Is this employee referenced in any Roster entry?
-    const rosterCount = await RosterEntry.countDocuments({ employee: id });
-
-    if (leaveCount > 0 || rosterCount > 0) {
-      return res.status(409).json({
-        success: false,
-        message:
-          'Cannot delete employee: existing records reference this employee.',
-        details: {
-          leaveRecords: leaveCount,
-          rosterEntries: rosterCount,
-        },
-        suggestion:
-          'Consider deactivating this employee instead (PUT /api/employees/:id with { "status": "Inactive" }) to preserve historical data.',
-      });
-    }
-
-    // No references found — safe to hard delete
-    await Employee.findByIdAndDelete(id);
-
-    return res.status(200).json({
-      success: true,
-      message: 'Employee deleted successfully',
-    });
-  } catch (error) {
-    console.error('Delete employee error:', error);
-
-    if (error.name === 'CastError') {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid employee ID format',
-      });
-    }
-
-    return res.status(500).json({
-      success: false,
-      message: 'Server error while deleting employee',
-    });
-  }
 };
