@@ -4,25 +4,43 @@ const shiftSchema = new mongoose.Schema(
   {
     name: {
       type: String,
-      enum: ['Morning', 'Evening', 'Night', 'General'],
-      required: true,
+      enum: ["Morning", "Evening", "Night", "General"],
+      required: [true, "Shift name is required"],
       unique: true,
+      trim: true,
     },
+
     startTime: {
-      type: String, // e.g. "09:00"
-      required: true,
+      type: String,
+      required: [true, "Start time is required"],
+      trim: true,
     },
+
     endTime: {
-      type: String, // e.g. "18:00"
-      required: true,
+      type: String,
+      required: [true, "End time is required"],
+      trim: true,
     },
+
     minimumEmployees: {
       type: Number,
       required: true,
       default: 1,
+      min: [1, "Minimum employees must be at least 1"],
+    },
+
+    status: {
+      type: String,
+      enum: ["active", "inactive"],
+      default: "active",
+    },
+
+    overnight: {
+      type: Boolean,
+      default: false,
     },
   },
   { timestamps: true }
 );
 
-module.exports = mongoose.model('Shift', shiftSchema);
+export default mongoose.model("Shift", shiftSchema);

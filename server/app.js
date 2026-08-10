@@ -5,6 +5,8 @@ import authRoutes from './routes/authRoutes.js';
 import dashboardRoutes from './routes/dashboardRoutes.js';
 import employeeRoutes from './routes/employee.routes.js';
 import teamRoutes from './routes/team.routes.js';
+import shiftRoutes from "./routes/shift.routes.js";
+import leaveRoutes from "./routes/leave.routes.js";
 import { verifyJWT } from './middleware/verifyJWT.js';
 
 const app = express();
@@ -26,6 +28,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/teams', teamRoutes);
+app.use("/api/shifts", shiftRoutes);
+app.use("/api/leaves", leaveRoutes);
 
 // Simple health check route (optional but useful for testing server is up)
 app.get('/', (req, res) => {
