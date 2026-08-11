@@ -59,7 +59,7 @@ export async function createTeam(req, res) {
 
         const team = await Team.create({
             name: normalizedName,
-            ...(description && { description: description.trim() }),
+            ...(description && { description: description.trim() }),  // ... spreads that object into the main object:
             ...(manager && { manager }),
             ...(status && { status }),
         });
@@ -89,7 +89,9 @@ export async function getTeams(req, res) {
         }
 
         if (name) {
-            filter.name = { $regex: escapeRegex(name), $options: "i" };
+            filter.name = { $regex: escapeRegex(name), // $regex allows MongoDB to perform pattern matching.
+                 $options: "i"  // case insensitive
+                };
         }
 
         const teams = await Team.find(filter)
