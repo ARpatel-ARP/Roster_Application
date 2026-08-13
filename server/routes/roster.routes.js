@@ -8,25 +8,89 @@ import {
   deleteRoster,
 } from "../controllers/roster.controller.js";
 
+import {
+  generateMonthlyRoster,
+  generateWeeklyRoster,
+   deleteGeneratedRosterById,
+   getGeneratedMonthlyRoster,
+   getGeneratedWeeklyRoster,
+   updateGeneratedRosterById,
+} from "../controllers/rosterGenerator.controller.js";
+
 import { verifyJWT } from "../middleware/verifyJWT.js";
 
 const router = express.Router();
 
 
-// POST /api/rosters
+// ===============================
+// MANUAL ROSTER
+// ===============================
+
 router.post("/", verifyJWT, createRoster);
 
-// GET /api/rosters
 router.get("/", verifyJWT, getRoster);
 
-// GET /api/rosters/:id
-router.get("/:id", verifyJWT, getRosterById);
 
-// PUT /api/rosters/:id
-router.put("/:id", verifyJWT, updateRoster);
+// ===============================
+// AUTOMATIC ROSTER GENERATION
+// ===============================
 
-// DELETE /api/rosters/:id
-router.delete("/:id", verifyJWT, deleteRoster);
+router.post(
+  "/generate/monthly",
+  verifyJWT,
+  generateMonthlyRoster
+);
 
+router.get(
+  "/generate/monthly",
+  verifyJWT,
+  getGeneratedMonthlyRoster
+);
+
+router.post(
+  "/generate/weekly",
+  verifyJWT,
+  generateWeeklyRoster
+);
+
+router.get(
+  "/generate/weekly",
+  verifyJWT,
+  getGeneratedWeeklyRoster
+);
+
+router.put(
+    "/generate/:id",
+    verifyJWT,
+    updateGeneratedRosterById
+);
+
+router.delete(
+  "/generate/:id",
+  verifyJWT,
+  deleteGeneratedRosterById
+);
+
+// ===============================
+// SINGLE ROSTER ENTRY
+// ===============================
+
+router.get(
+  "/:id",
+  verifyJWT,
+  getRosterById
+);
+
+router.put(
+  "/:id",
+  verifyJWT,
+  updateRoster
+);
+
+router.delete(
+  "/:id",
+  verifyJWT,
+  deleteRoster
+);
 
 export default router;

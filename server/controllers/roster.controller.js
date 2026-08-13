@@ -288,10 +288,6 @@ const validateNightShiftLimit = async ({
     return null;
   }
 
-  if (!employee.nightAllowed) {
-    return "Employee is not allowed to work night shifts";
-  }
-
   const maxNightPerMonth =
     employee.maxNightPerMonth;
 
@@ -304,7 +300,6 @@ const validateNightShiftLimit = async ({
 
   const filter = {
     employee: employee._id,
-
     date: {
       $gte: start,
       $lt: end,
@@ -1549,3 +1544,4 @@ export async function deleteRoster(
     );
   }
 }
+
