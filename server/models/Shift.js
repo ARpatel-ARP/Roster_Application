@@ -4,7 +4,7 @@ const shiftSchema = new mongoose.Schema(
   {
     name: {
       type: String,
-      enum: ["Morning", "Evening", "Night", "General"],
+      enum: ["Morning", "Evening", "Night", "General", "Off"],
       required: [true, "Shift name is required"],
       unique: true,
       trim: true,
@@ -26,7 +26,7 @@ const shiftSchema = new mongoose.Schema(
       type: Number,
       required: true,
       default: 1,
-      min: [1, "Minimum employees must be at least 1"],
+      min: [0, "Minimum employees cannot be negative"],
     },
 
     status: {

@@ -1,800 +1,32 @@
 import mongoose from "mongoose";
-
-import Employee from "../models/Employee.js";
-import Shift from "../models/Shift.js";
 import Leave from "../models/Leave.js";
-import Holiday from "../models/Holiday.js";
-
-import {
-    RosterEntry,
-    RosterMonth,
-} from "../models/Roster.js";
-
-
-
-// ============================================================
-// ROSTER GENERATOR
-// ============================================================
-
-const DAY_NAMES = [
-    "Sunday",
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-];
+import Team from "../models/Team.js";
+import { RosterEntry, RosterMonth } from "../models/Roster.js";
+import { generateRoster } from "../services/roster/generator.service.js";
+import { getPreviousWorkingDays } from "../services/roster/constraints.js";
+import { validateTeamShiftCompatibility, validateWeekendAssignment, validateHelpDeskNightRecovery } from "../services/roster/assignmentRules.service.js";
 
 const getDateKey = (date) => {
-    const d = new Date(date);
-
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-
-    return `${year}-${month}-${day}`;
+  const d = new Date(date);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 
- const parseDateOnly = (dateString) => {
-  if (
-    typeof dateString !== "string" ||
-    !/^\d{4}-\d{2}-\d{2}$/.test(dateString)
-  ) {
-    return null;
-  }
-
-  const [year, month, day] = dateString
-    .split("-")
-    .map(Number);
-
-  const date = new Date(
-    year,
-    month - 1,
-    day
-  );
-
-  // Prevent invalid dates such as 2026-02-31
-  if (
-    date.getFullYear() !== year ||
-    date.getMonth() !== month - 1 ||
-    date.getDate() !== day
-  ) {
-    return null;
-  }
-
+const parseDateOnly = (dateString) => {
+  if (typeof dateString !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dateString)) return null;
+  const [year, month, day] = dateString.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
   return date;
 };
 
-const startOfDay = (date) => {
-    const d = new Date(date);
-    d.setHours(0, 0, 0, 0);
-
-    return d;
-};
-
-const endOfDay = (date) => {
-    const d = new Date(date);
-    d.setHours(23, 59, 59, 999);
-
-    return d;
-};
-
-const getDayName = (date) => {
-    return DAY_NAMES[new Date(date).getDay()];
-};
-
+const startOfDay = (date) => { const d = new Date(date); d.setHours(0,0,0,0); return d; };
+const endOfDay = (date) => { const d = new Date(date); d.setHours(23,59,59,999); return d; };
 const getDatesBetween = (start, end) => {
-    const dates = [];
-
-    const current = new Date(
-        start.getFullYear(),
-        start.getMonth(),
-        start.getDate()
-    );
-
-    const lastDate = new Date(
-        end.getFullYear(),
-        end.getMonth(),
-        end.getDate()
-    );
-
-    while (current <= lastDate) {
-        dates.push(
-            new Date(
-                current.getFullYear(),
-                current.getMonth(),
-                current.getDate()
-            )
-        );
-
-        current.setDate(
-            current.getDate() + 1
-        );
-    }
-
-    return dates;
-};
-
-const isNightShift = (shift) => {
-    return shift?.name === "Night";
-};
-
-const isMorningShift = (shift) => {
-    return shift?.name === "Morning";
-};
-
-/**
- * Approved leave check
- */
-const employeeOnApprovedLeave = (
-    employeeId,
-    date,
-    approvedLeaves
-) => {
-    const currentDate = startOfDay(date);
-
-    return approvedLeaves.some((leave) => {
-        if (
-            leave.employee.toString() !==
-            employeeId.toString()
-        ) {
-            return false;
-        }
-
-        const leaveStart = startOfDay(
-            leave.startDate
-        );
-
-        const leaveEnd = endOfDay(
-            leave.endDate
-        );
-
-        return (
-            currentDate >= leaveStart &&
-            currentDate <= leaveEnd
-        );
-    });
-};
-
-/**
- * Holiday check.
- *
- * IMPORTANT:
- * Holidays DO NOT stop roster generation.
- * Technical Support works on holidays if required.
- */
-const isHoliday = (date, holidays) => {
-    const key = getDateKey(date);
-
-    return holidays.some(
-        (holiday) =>
-            getDateKey(holiday.date) === key
-    );
-};
-
-/**
- * Get employee's assignment map.
- */
-const getEmployeeAssignments = (
-    assignments,
-    employeeId
-) => {
-    return assignments.get(
-        employeeId.toString()
-    );
-};
-
-/**
- * Get number of consecutive working days
- * immediately before the current date.
- */
-const getPreviousWorkingDays = (
-    employeeId,
-    date,
-    assignments
-) => {
-    const employeeAssignments =
-        getEmployeeAssignments(
-            assignments,
-            employeeId
-        );
-
-    if (!employeeAssignments) {
-        return 0;
-    }
-
-    let count = 0;
-
-    const current = new Date(date);
-
-    current.setDate(
-        current.getDate() - 1
-    );
-
-    while (true) {
-        const key = getDateKey(current);
-
-        if (
-            !employeeAssignments.has(key)
-        ) {
-            break;
-        }
-
-        count++;
-
-        if (count >= 6) {
-            break;
-        }
-
-        current.setDate(
-            current.getDate() - 1
-        );
-    }
-
-    return count;
-};
-
-/**
- * Check Night -> Morning conflict.
- */
-const hasNightMorningConflict = (
-    employeeId,
-    date,
-    assignments
-) => {
-    const employeeAssignments =
-        getEmployeeAssignments(
-            assignments,
-            employeeId
-        );
-
-    if (!employeeAssignments) {
-        return false;
-    }
-
-    const previousDate = new Date(date);
-
-    previousDate.setDate(
-        previousDate.getDate() - 1
-    );
-
-    const previousAssignment =
-        employeeAssignments.get(
-            getDateKey(previousDate)
-        );
-
-    if (!previousAssignment) {
-        return false;
-    }
-
-    return isNightShift(
-        previousAssignment.shift
-    );
-};
-
-/**
- * Count employee's Night shifts.
- */
-const getNightCount = (
-    employeeId,
-    assignments
-) => {
-    const employeeAssignments =
-        getEmployeeAssignments(
-            assignments,
-            employeeId
-        );
-
-    if (!employeeAssignments) {
-        return 0;
-    }
-
-    let count = 0;
-
-    for (
-        const assignment
-        of employeeAssignments.values()
-    ) {
-        if (
-            isNightShift(
-                assignment.shift
-            )
-        ) {
-            count++;
-        }
-    }
-
-    return count;
-};
-
-/**
- * Check all HARD constraints.
- *
- * nightAllowed is intentionally NOT checked.
- */
-const canAssignEmployee = ({
-    employee,
-    shift,
-    date,
-    assignments,
-    approvedLeaves,
-}) => {
-    const employeeId =
-        employee._id.toString();
-
-    const employeeAssignments =
-        getEmployeeAssignments(
-            assignments,
-            employeeId
-        );
-
-    const dateKey =
-        getDateKey(date);
-
-    // One shift per employee per day
-    if (
-        employeeAssignments?.has(dateKey)
-    ) {
-        return {
-            allowed: false,
-            reason:
-                "Employee already has a shift on this date",
-        };
-    }
-
-    // Approved leave
-    if (
-        employeeOnApprovedLeave(
-            employee._id,
-            date,
-            approvedLeaves
-        )
-    ) {
-        return {
-            allowed: false,
-            reason:
-                "Employee is on approved leave",
-        };
-    }
-
-    // Night -> Morning
-    if (
-        isMorningShift(shift) &&
-        hasNightMorningConflict(
-            employee._id,
-            date,
-            assignments
-        )
-    ) {
-        return {
-            allowed: false,
-            reason:
-                "Morning shift cannot immediately follow Night shift",
-        };
-    }
-
-    // Maximum 6 consecutive working days
-    const previousWorkingDays =
-        getPreviousWorkingDays(
-            employee._id,
-            date,
-            assignments
-        );
-
-    if (
-        previousWorkingDays >= 6
-    ) {
-        return {
-            allowed: false,
-            reason:
-                "Employee has already worked 6 consecutive days",
-        };
-    }
-
-    // Maximum Night shifts
-    if (
-        isNightShift(shift)
-    ) {
-        const maxNight =
-            employee.maxNightPerMonth ?? 0;
-
-        const currentNightCount =
-            getNightCount(
-                employee._id,
-                assignments
-            );
-
-        if (
-            currentNightCount >=
-            maxNight
-        ) {
-            return {
-                allowed: false,
-                reason:
-                    "Maximum monthly Night shift limit reached",
-            };
-        }
-    }
-
-    return {
-        allowed: true,
-    };
-};
-
-/**
- * Score employees.
- *
- * Higher score = better candidate.
- *
- * Preferences are SOFT constraints.
- */
-const calculateEmployeeScore = ({
-    employee,
-    shift,
-    date,
-    assignments,
-}) => {
-    let score = 0;
-
-    // Preferred shift
-    if (
-        employee.preferredShift ===
-        shift.name
-    ) {
-        score += 50;
-    }
-
-    // Preferred weekly off.
-    //
-    // If today is employee's preferred off,
-    // lower their priority instead of blocking them.
-    if (
-        employee.preferredWeeklyOff ===
-        getDayName(date)
-    ) {
-        score -= 30;
-    }
-
-    // Balance Night shifts
-    if (
-        isNightShift(shift)
-    ) {
-        const nightCount =
-            getNightCount(
-                employee._id,
-                assignments
-            );
-
-        score -= nightCount * 10;
-    }
-
-    // Balance total workload
-    const employeeAssignments =
-        getEmployeeAssignments(
-            assignments,
-            employee._id
-        );
-
-    const totalAssignments =
-        employeeAssignments
-            ? employeeAssignments.size
-            : 0;
-
-    score -= totalAssignments;
-
-    return score;
-};
-
-const sortCandidates = ({
-    employees,
-    shift,
-    date,
-    assignments,
-}) => {
-    return [...employees].sort(
-        (a, b) => {
-            const scoreA =
-                calculateEmployeeScore({
-                    employee: a,
-                    shift,
-                    date,
-                    assignments,
-                });
-
-            const scoreB =
-                calculateEmployeeScore({
-                    employee: b,
-                    shift,
-                    date,
-                    assignments,
-                });
-
-            return scoreB - scoreA;
-        }
-    );
-};
-
-/**
- * Register generated assignment
- * in the in-memory schedule.
- */
-const registerAssignment = ({
-    employee,
-    shift,
-    date,
-    assignments,
-    generatedEntries,
-}) => {
-    const employeeId =
-        employee._id.toString();
-
-    const dateKey =
-        getDateKey(date);
-
-    if (
-        !assignments.has(employeeId)
-    ) {
-        assignments.set(
-            employeeId,
-            new Map()
-        );
-    }
-
-    const assignment = {
-        employee: employee._id,
-        date: new Date(date),
-        shift,
-    };
-
-    assignments
-        .get(employeeId)
-        .set(
-            dateKey,
-            assignment
-        );
-
-    generatedEntries.push({
-        employee: employee._id,
-        date: new Date(date),
-        shift: shift._id,
-        month:
-            date.getMonth() + 1,
-        year:
-            date.getFullYear(),
-        isWeeklyOff: false,
-        isHoliday: false,
-        isLeave: false,
-        manuallyEdited: false,
-    });
-};
-
-/**
- * Core generator.
- *
- * Monthly and weekly APIs both use this.
- */
-const generateRoster = async ({
-    dates,
-    month,
-    year,
-    existingEntries = [],
-}) => {
-    const employees =
-        await Employee.find({
-            status: "Active",
-        }).lean();
-
-    if (!employees.length) {
-        throw new Error(
-            "No active employees available"
-        );
-    }
-
-    const shifts =
-        await Shift.find({
-            status: "active",
-        }).lean();
-
-    if (!shifts.length) {
-        throw new Error(
-            "No active shifts available"
-        );
-    }
-
-    const approvedLeaves =
-        await Leave.find({
-            status: "Approved",
-        }).lean();
-
-    const holidays =
-        await Holiday.find({
-            date: {
-                $gte: startOfDay(
-                    dates[0]
-                ),
-                $lte: endOfDay(
-                    dates[dates.length - 1]
-                ),
-            },
-        }).lean();
-
-    /**
-     * employeeId -> date -> assignment
-     */
-    const assignments =
-        new Map();
-
-    /**
-     * Load existing assignments.
-     *
-     * Important for weekly generation.
-     */
-    for (
-        const entry
-        of existingEntries
-    ) {
-        const employeeId =
-            entry.employee._id
-                ? entry.employee._id.toString()
-                : entry.employee.toString();
-
-        if (
-            !assignments.has(employeeId)
-        ) {
-            assignments.set(
-                employeeId,
-                new Map()
-            );
-        }
-
-        assignments
-            .get(employeeId)
-            .set(
-                getDateKey(entry.date),
-                {
-                    employee:
-                        entry.employee,
-                    date:
-                        entry.date,
-                    shift:
-                        entry.shift,
-                }
-            );
-    }
-
-    const generatedEntries = [];
-    const warnings = [];
-
-    /**
-     * Process every day.
-     *
-     * Sunday is intentionally included.
-     */
-    for (
-        const date of dates
-    ) {
-        const holiday =
-            isHoliday(
-                date,
-                holidays
-            );
-
-        for (
-            const shift
-            of shifts
-        ) {
-            let assigned = 0;
-
-            const candidates =
-                sortCandidates({
-                    employees,
-                    shift,
-                    date,
-                    assignments,
-                });
-
-            for (
-                const employee
-                of candidates
-            ) {
-                if (
-                    assigned >=
-                    shift.minimumEmployees
-                ) {
-                    break;
-                }
-
-                const validation =
-                    canAssignEmployee({
-                        employee,
-                        shift,
-                        date,
-                        assignments,
-                        approvedLeaves,
-                    });
-
-                if (
-                    !validation.allowed
-                ) {
-                    continue;
-                }
-
-                registerAssignment({
-                    employee,
-                    shift,
-                    date,
-                    assignments,
-                    generatedEntries,
-                });
-
-                assigned++;
-            }
-
-            /**
-             * Minimum staffing is SOFT.
-             *
-             * Generate anyway and return warning.
-             */
-            if (
-                assigned <
-                shift.minimumEmployees
-            ) {
-                warnings.push({
-                    type:
-                        "STAFFING_SHORTAGE",
-
-                    date:
-                        getDateKey(date),
-
-                    day:
-                        getDayName(date),
-
-                    shift:
-                        shift.name,
-
-                    required:
-                        shift.minimumEmployees,
-
-                    assigned,
-
-                    shortage:
-                        shift.minimumEmployees -
-                        assigned,
-
-                    holiday,
-
-                    message:
-                        `${shift.name} shift requires ` +
-                        `${shift.minimumEmployees} employees ` +
-                        `but only ${assigned} ` +
-                        `could be assigned.`,
-                });
-            }
-        }
-    }
-
-    return {
-        generatedEntries,
-        warnings,
-
-        summary: {
-            employees:
-                employees.length,
-
-            shifts:
-                shifts.length,
-
-            assignments:
-                generatedEntries.length,
-
-            holidays:
-                holidays.length,
-
-            warnings:
-                warnings.length,
-        },
-    };
+  const dates = [];
+  const current = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  const last = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+  while (current <= last) { dates.push(new Date(current)); current.setDate(current.getDate() + 1); }
+  return dates;
 };
 
 // ============================================================
@@ -1178,10 +410,13 @@ export const generateWeeklyRoster =
             /**
              * Get existing assignments.
              */
+            const historyStart = new Date(weekStart);
+            historyStart.setDate(historyStart.getDate() - 6);
+
             const existingEntries =
                 await RosterEntry.find({
                     date: {
-                        $gte: weekStart,
+                        $gte: historyStart,
                         $lte:
                             endOfDay(weekEnd),
                     },
@@ -1197,8 +432,13 @@ export const generateWeeklyRoster =
                     .session(session)
                     .lean();
 
+            const weekEntries = existingEntries.filter((entry) => {
+                const date = new Date(entry.date);
+                return date >= weekStart && date <= endOfDay(weekEnd);
+            });
+
             if (
-                existingEntries.length
+                weekEntries.length
             ) {
                 await session.abortTransaction();
 
@@ -1529,6 +769,17 @@ export const updateGeneratedRosterById = async (req, res) => {
             });
         }
 
+        const employeeTeam = employee.team
+            ? await Team.findById(employee.team).lean()
+            : null;
+
+        if (!employeeTeam) {
+            return res.status(409).json({
+                success: false,
+                message: "Employee must belong to an active team",
+            });
+        }
+
         // --------------------------------------------------------
         // Find shift
         // --------------------------------------------------------
@@ -1549,6 +800,42 @@ export const updateGeneratedRosterById = async (req, res) => {
                 message:
                     "Inactive shifts cannot be assigned to roster",
             });
+        }
+
+        const teamShiftError = validateTeamShiftCompatibility({
+            employee,
+            team: employeeTeam,
+            shift,
+        });
+
+        if (teamShiftError) {
+            return res.status(400).json({
+                success: false,
+                message: teamShiftError,
+            });
+        }
+
+        const weekendError = await validateWeekendAssignment({
+            employeeId,
+            date: newDate,
+            shift,
+            excludeRosterId: id,
+        });
+
+        if (weekendError) {
+            return res.status(400).json({ success: false, message: weekendError });
+        }
+
+        employee.team = employeeTeam;
+        const helpDeskNightError = await validateHelpDeskNightRecovery({
+            employee,
+            date: newDate,
+            shift,
+            excludeRosterId: id,
+        });
+
+        if (helpDeskNightError) {
+            return res.status(400).json({ success: false, message: helpDeskNightError });
         }
 
         // --------------------------------------------------------
@@ -1830,7 +1117,7 @@ export const updateGeneratedRosterById = async (req, res) => {
             false;
 
         rosterEntry.isWeeklyOff =
-            false;
+            shift.name === "Off";
 
         rosterEntry.manuallyEdited =
             true;

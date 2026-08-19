@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import Leave from "../models/Leave.js";
 import Employee from "../models/Employee.js";
+import { getLeaveBalanceSummary, recalculateEmployeeYearLeave } from "../services/leave/leaveBalance.service.js";
 
 const VALID_STATUSES = ["Approved", "Rejected", "Pending"];
 
@@ -321,6 +322,13 @@ export async function createLeave(req, res) {
             approvedBy,
         });
 
+        if (leaveStatus === "Approved") {
+            await recalculateEmployeeYearLeave(employee, parsedStartDate.getFullYear());
+            if (parsedEndDate.getFullYear() !== parsedStartDate.getFullYear()) {
+                await recalculateEmployeeYearLeave(employee, parsedEndDate.getFullYear());
+            }
+        }
+
         // Populate employee and approver for response
         await leave.populate([
             {
@@ -555,6 +563,11 @@ export async function updateLeave(req, res) {
             });
         }
 
+        const previousEmployeeId = leave.employee.toString();
+        const previousStartYear = leave.startDate.getFullYear();
+        const previousEndYear = leave.endDate.getFullYear();
+        const previousStatus = leave.status;
+
         const {
             employee,
             startDate,
@@ -779,6 +792,23 @@ export async function updateLeave(req, res) {
 
         await leave.save();
 
+        const affectedYears = new Set([
+            previousStartYear,
+            previousEndYear,
+            resultingStartDate.getFullYear(),
+            resultingEndDate.getFullYear(),
+        ]);
+        const affectedEmployees = new Set([
+            previousEmployeeId,
+            resultingEmployee,
+        ]);
+
+        for (const employeeId of affectedEmployees) {
+            for (const affectedYear of affectedYears) {
+                await recalculateEmployeeYearLeave(employeeId, affectedYear);
+            }
+        }
+
         await leave.populate([
             {
                 path: "employee",
@@ -796,6 +826,30 @@ export async function updateLeave(req, res) {
             message: "Leave updated successfully",
             data: leave,
         });
+    } catch (error) {
+        return handleUnexpectedError(error, res);
+    }
+}
+
+/**
+ * GET /api/leaves/balance/:employeeId?year=YYYY
+ * Returns accrued, carried-forward, paid and unpaid leave.
+ */
+export async function getLeaveBalance(req, res) {
+    try {
+        const { employeeId } = req.params;
+        const year = Number(req.query.year || new Date().getFullYear());
+        if (!mongoose.isValidObjectId(employeeId)) {
+            return res.status(400).json({ success: false, message: "Invalid employee id" });
+        }
+        if (!Number.isInteger(year) || year < 2000) {
+            return res.status(400).json({ success: false, message: "Valid year is required" });
+        }
+        const employee = await Employee.findById(employeeId).lean();
+        if (!employee) return res.status(404).json({ success: false, message: "Employee not found" });
+        await recalculateEmployeeYearLeave(employeeId, year);
+        const balance = await getLeaveBalanceSummary(employeeId, year);
+        return res.status(200).json({ success: true, data: balance });
     } catch (error) {
         return handleUnexpectedError(error, res);
     }

@@ -29,6 +29,10 @@ const leaveSchema = new mongoose.Schema(
       ref: 'Admin',
       default: null,
     },
+    leaveDays: { type: Number, default: 0, min: 0 },
+    paidDays: { type: Number, default: 0, min: 0 },
+    unpaidDays: { type: Number, default: 0, min: 0 },
+    salaryDeduction: { type: Number, default: null, min: 0 },
   },
   { timestamps: true }
 );

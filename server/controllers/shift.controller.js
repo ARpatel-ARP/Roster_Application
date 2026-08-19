@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import Shift from "../models/Shift.js";
 
-const VALID_SHIFT_NAMES = ["Morning", "Evening", "Night", "General"];
+const VALID_SHIFT_NAMES = ["Morning", "Evening", "Night", "General", "Off"];
 const VALID_STATUSES = ["active", "inactive"];
 
 const TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -103,7 +103,7 @@ export async function createShift(req, res) {
     }
 
     // Same start/end time is not considered a valid shift
-    if (startTime === endTime) {
+    if (name !== "Off" && startTime === endTime) {
       return res.status(400).json({
         success: false,
         message: "startTime and endTime cannot be the same.",
@@ -113,11 +113,11 @@ export async function createShift(req, res) {
     // Validate minimumEmployees
     if (
       minimumEmployees !== undefined &&
-      (!Number.isInteger(minimumEmployees) || minimumEmployees < 1)
+      (!Number.isInteger(minimumEmployees) || minimumEmployees < (shift.name === "Off" ? 0 : 1))
     ) {
       return res.status(400).json({
         success: false,
-        message: "minimumEmployees must be a positive integer.",
+        message: "minimumEmployees must be a non-negative integer for Off and a positive integer for working shifts.",
       });
     }
 
@@ -338,7 +338,7 @@ export async function updateShift(req, res) {
     }
 
     // Validate resulting times
-    if (newStartTime === newEndTime) {
+    if (shift.name !== "Off" && newStartTime === newEndTime) {
       return res.status(400).json({
         success: false,
         message: "startTime and endTime cannot be the same.",
@@ -363,11 +363,11 @@ export async function updateShift(req, res) {
     if (minimumEmployees !== undefined) {
       if (
         !Number.isInteger(minimumEmployees) ||
-        minimumEmployees < 1
+        minimumEmployees < (shift.name === "Off" ? 0 : 1)
       ) {
         return res.status(400).json({
           success: false,
-          message: "minimumEmployees must be a positive integer.",
+          message: "minimumEmployees must be a non-negative integer for Off and a positive integer for working shifts.",
         });
       }
 

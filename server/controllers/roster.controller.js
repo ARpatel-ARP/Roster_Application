@@ -9,6 +9,11 @@ import {
   RosterEntry,
   RosterMonth,
 } from "../models/Roster.js";
+import {
+  validateTeamShiftCompatibility,
+  validateWeekendAssignment,
+  validateHelpDeskNightRecovery,
+} from "../services/roster/assignmentRules.service.js";
 
 
 // ============================================================
@@ -554,6 +559,48 @@ export async function createRoster(req, res) {
     const { shift: shiftDoc } =
       shiftResult;
 
+    const teamShiftError =
+      validateTeamShiftCompatibility({
+        employee: employeeDoc,
+        team: teamDoc,
+        shift: shiftDoc,
+      });
+
+    if (teamShiftError) {
+      return res.status(400).json({
+        success: false,
+        message: teamShiftError,
+      });
+    }
+
+    const weekendError =
+      await validateWeekendAssignment({
+        employeeId: employeeDoc._id,
+        date: parsedDate,
+        shift: shiftDoc,
+      });
+
+    if (weekendError) {
+      return res.status(400).json({
+        success: false,
+        message: weekendError,
+      });
+    }
+
+    const helpDeskNightError =
+      await validateHelpDeskNightRecovery({
+        employee: employeeDoc,
+        date: parsedDate,
+        shift: shiftDoc,
+      });
+
+    if (helpDeskNightError) {
+      return res.status(400).json({
+        success: false,
+        message: helpDeskNightError,
+      });
+    }
+
     // --------------------------------------------------------
     // Month/year
     // --------------------------------------------------------
@@ -701,7 +748,7 @@ export async function createRoster(req, res) {
         month,
         year,
 
-        isWeeklyOff: false,
+        isWeeklyOff: shiftDoc.name === "Off",
         isHoliday: Boolean(holiday),
         isLeave: false,
 
@@ -1237,6 +1284,50 @@ export async function updateRoster(
     const {
       shift: shiftDoc,
     } = shiftResult;
+
+    const teamShiftError =
+      validateTeamShiftCompatibility({
+        employee: employeeDoc,
+        team: teamDoc,
+        shift: shiftDoc,
+      });
+
+    if (teamShiftError) {
+      return res.status(400).json({
+        success: false,
+        message: teamShiftError,
+      });
+    }
+
+    const weekendError =
+      await validateWeekendAssignment({
+        employeeId: employeeDoc._id,
+        date: parsedDate,
+        shift: shiftDoc,
+        excludeRosterId: roster._id,
+      });
+
+    if (weekendError) {
+      return res.status(400).json({
+        success: false,
+        message: weekendError,
+      });
+    }
+
+    const helpDeskNightError =
+      await validateHelpDeskNightRecovery({
+        employee: employeeDoc,
+        date: parsedDate,
+        shift: shiftDoc,
+        excludeRosterId: roster._id,
+      });
+
+    if (helpDeskNightError) {
+      return res.status(400).json({
+        success: false,
+        message: helpDeskNightError,
+      });
+    }
 
     // --------------------------------------------------------
     // Month/year

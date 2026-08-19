@@ -6,6 +6,7 @@ import {
     getLeaveById,
     updateLeave,
     deleteLeave,
+    getLeaveBalance,
 } from "../controllers/leave.controller.js";
 
 import { verifyJWT } from "../middleware/verifyJWT.js";
@@ -19,6 +20,7 @@ router.post("/", verifyJWT, createLeave);
 router.get("/", verifyJWT, getLeaves);
 
 // GET /api/leaves/:id
+router.get("/balance/:employeeId", verifyJWT, getLeaveBalance);
 router.get("/:id", verifyJWT, getLeaveById);
 
 // PUT /api/leaves/:id
