@@ -8,9 +8,9 @@ const getDateKey = (date) => {
 
 const dayRange = (date) => {
   const start = new Date(date);
-  start.setHours(0,0,0,0);
+  start.setHours(0, 0, 0, 0);
   const end = new Date(start);
-  end.setHours(23,59,59,999);
+  end.setHours(23, 59, 59, 999);
   return { start, end };
 };
 
@@ -43,8 +43,14 @@ export const validateWeekendAssignment = async ({ employeeId, date, shift, exclu
   return null;
 };
 
-export const validateHelpDeskNightRecovery = async ({ employee, date, shift, excludeRosterId = null }) => {
-  const rule = getTeamRule(employee.team?.name || employee.teamName);
+export const validateHelpDeskNightRecovery = async ({ 
+  employee,
+  team = null,
+  date,
+  shift,
+  excludeRosterId = null, 
+}) => {
+  const rule = getTeamRule( team?.name || employee.team?.name || employee.teamName);
   if (!rule?.helpDesk || shift.name === "Off") return null;
 
   const first = new Date(date); first.setDate(first.getDate() - 1);

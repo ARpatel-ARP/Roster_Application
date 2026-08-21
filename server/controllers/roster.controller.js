@@ -588,11 +588,12 @@ export async function createRoster(req, res) {
     }
 
     const helpDeskNightError =
-      await validateHelpDeskNightRecovery({
-        employee: employeeDoc,
-        date: parsedDate,
-        shift: shiftDoc,
-      });
+  await validateHelpDeskNightRecovery({
+    employee: employeeDoc,
+    team: teamDoc,
+    date: parsedDate,
+    shift: shiftDoc,
+  });
 
     if (helpDeskNightError) {
       return res.status(400).json({
