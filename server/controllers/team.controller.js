@@ -170,7 +170,6 @@ export async function updateTeam(req, res) {
         }
 
         const team = await Team.findById(id);
-        
 
         if (!team) {
             return res.status(404).json({
@@ -235,13 +234,21 @@ export async function updateTeam(req, res) {
             team.status = status;
         }
 
-        await team.populate("manager", "employeeId name email");
+        // IMPORTANT: Persist all changes to MongoDB
+        await team.save();
+
+        // Populate only after saving
+        await team.populate(
+            "manager",
+            "employeeId name email"
+        );
 
         return res.status(200).json({
             success: true,
             message: "Team updated successfully",
             data: team,
         });
+
     } catch (err) {
         return handleUnexpectedError(err, res);
     }
