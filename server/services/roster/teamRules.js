@@ -53,7 +53,7 @@ export const TEAM_RULES = {
   },
 
   network: {
-    aliases: ["network", "network administrators"],
+    aliases: ["network", "network administrator", "network administrators"],
 
     // Monday-Friday
     requiredShifts: {

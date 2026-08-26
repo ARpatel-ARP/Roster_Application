@@ -147,6 +147,7 @@ export const generateMonthlyRoster =
                     month,
                     year,
                     existingEntries,
+                    generationType: "monthly",
                 });
 
             if (
@@ -455,7 +456,12 @@ export const generateWeeklyRoster =
                     month,
                     year,
                     existingEntries,
+                    generationType: "weekly",
                 });
+
+                result.warnings = result.warnings.filter(
+    (warning) => warning.type !== "WEEKEND_OFF_SHORTAGE"
+);
 
             if (
                 !result.generatedEntries.length

@@ -685,6 +685,7 @@ export const generateRoster =
   async ({
     dates,
     existingEntries = [],
+    generationType = "weekly",
   }) => {
     const employees =
       await Employee.find({
@@ -1235,71 +1236,73 @@ export const generateRoster =
      * COMPLETE WEEKEND-OFF VALIDATION
      * ======================================================
      */
-    for (
-      const employee of employees
-    ) {
-      const map =
-        getEmployeeAssignments(
-          assignments,
-          employee._id
-        ) || new Map();
+    // Complete Saturday + Sunday weekend-off validation
+// applies ONLY to monthly generation.
+if (generationType === "monthly") {
+    for (const employee of employees) {
+        const map =
+            getEmployeeAssignments(
+                assignments,
+                employee._id
+            ) || new Map();
 
-      const complete =
-        weekendPairs.some(
-          (pair) => {
-            const saturday =
-              map.get(
-                getDateKey(
-                  pair.saturday
-                )
-              );
+        const complete =
+            weekendPairs.some(
+                (pair) => {
+                    const saturday =
+                        map.get(
+                            getDateKey(
+                                pair.saturday
+                            )
+                        );
 
-            const sunday =
-              map.get(
-                getDateKey(
-                  pair.sunday
-                )
-              );
+                    const sunday =
+                        map.get(
+                            getDateKey(
+                                pair.sunday
+                            )
+                        );
 
-            const saturdayOff =
-              !saturday ||
-              saturday.isWeeklyOff ||
-              saturday.isLeave ||
-              !isWorkingShift(
-                saturday.shift
-              );
+                    const saturdayOff =
+                        !saturday ||
+                        saturday.isWeeklyOff ||
+                        saturday.isLeave ||
+                        !isWorkingShift(
+                            saturday.shift
+                        );
 
-            const sundayOff =
-              !sunday ||
-              sunday.isWeeklyOff ||
-              sunday.isLeave ||
-              !isWorkingShift(
-                sunday.shift
-              );
+                    const sundayOff =
+                        !sunday ||
+                        sunday.isWeeklyOff ||
+                        sunday.isLeave ||
+                        !isWorkingShift(
+                            sunday.shift
+                        );
 
-            return (
-              saturdayOff &&
-              sundayOff
+                    return (
+                        saturdayOff &&
+                        sundayOff
+                    );
+                }
             );
-          }
-        );
 
-      if (
-        !complete &&
-        weekendPairs.length
-      ) {
-        warnings.push({
-          type:
-            "WEEKEND_OFF_SHORTAGE",
-          employee:
-            employee._id,
-          employeeName:
-            employee.name,
-          message:
-            "Employee did not receive a complete Saturday + Sunday weekend off in the generated month.",
-        });
-      }
+        if (
+            !complete &&
+            weekendPairs.length
+        ) {
+            warnings.push({
+                type:
+                    "WEEKEND_OFF_SHORTAGE",
+                employee:
+                    employee._id,
+                employeeName:
+                    employee.name,
+                message:
+                    "Employee did not receive a complete Saturday + Sunday weekend off in the generated month.",
+            });
+        }
     }
+}
 
     return {
       generatedEntries,
