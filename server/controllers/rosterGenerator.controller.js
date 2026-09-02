@@ -1,6 +1,9 @@
 import mongoose from "mongoose";
 import Leave from "../models/Leave.js";
 import Team from "../models/Team.js";
+import Employee from "../models/Employee.js";
+import Shift from "../models/Shift.js";
+import Holiday from "../models/Holiday.js";
 import { RosterEntry, RosterMonth } from "../models/Roster.js";
 import { generateRoster } from "../services/roster/generator.service.js";
 import { getPreviousWorkingDays } from "../services/roster/constraints.js";
