@@ -11,24 +11,63 @@ import { validateTeamShiftCompatibility, validateWeekendAssignment, validateHelp
 
 const getDateKey = (date) => {
   const d = new Date(date);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
 };
 
-const parseDateOnly = (dateString) => {
-  if (typeof dateString !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dateString)) return null;
-  const [year, month, day] = dateString.split("-").map(Number);
-  const date = new Date(year, month - 1, day);
-  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+const parseDateOnly = (value) => {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return null;
+  }
+
+  const date = new Date(`${value}T00:00:00.000Z`);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  const [year, month, day] =
+    value.split("-").map(Number);
+
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() + 1 !== month ||
+    date.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
   return date;
 };
 
-const startOfDay = (date) => { const d = new Date(date); d.setHours(0,0,0,0); return d; };
-const endOfDay = (date) => { const d = new Date(date); d.setHours(23,59,59,999); return d; };
+const startOfDay = (date) => {
+  const d = new Date(date);
+  d.setUTCHours(0, 0, 0, 0);
+  return d;
+};
+const endOfDay = (date) => {
+  const d = new Date(date);
+  d.setUTCHours(23, 59, 59, 999);
+  return d;
+};
 const getDatesBetween = (start, end) => {
   const dates = [];
-  const current = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-  const last = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-  while (current <= last) { dates.push(new Date(current)); current.setDate(current.getDate() + 1); }
+
+  const current = new Date(start);
+  current.setUTCHours(0, 0, 0, 0);
+
+  const last = new Date(end);
+  last.setUTCHours(0, 0, 0, 0);
+
+  while (current <= last) {
+    dates.push(new Date(current));
+    current.setUTCDate(current.getUTCDate() + 1);
+  }
+
   return dates;
 };
 
@@ -70,25 +109,18 @@ export const generateMonthlyRoster =
                 });
             }
 
-            const monthStart =
-                new Date(
-                    year,
-                    month - 1,
-                    1
-                );
+            const monthStart = new Date(
+  Date.UTC(year, month - 1, 1)
+);
 
-            const monthEnd =
-                new Date(
-                    year,
-                    month,
-                    0
-                );
+const monthEnd = new Date(
+  Date.UTC(year, month, 0)
+);
 
-            const dates =
-                getDatesBetween(
-                    monthStart,
-                    monthEnd
-                );
+const dates = getDatesBetween(
+  monthStart,
+  monthEnd
+);
 
             session.startTransaction();
 
@@ -372,9 +404,9 @@ export const generateWeeklyRoster =
             const weekEnd =
                 new Date(weekStart);
 
-            weekEnd.setDate(
-                weekEnd.getDate() + 6
-            );
+            weekEnd.setUTCDate(
+    weekEnd.getUTCDate() + 6
+);
 
             const dates =
                 getDatesBetween(
@@ -383,10 +415,10 @@ export const generateWeeklyRoster =
                 );
 
             const month =
-                weekStart.getMonth() + 1;
+    weekStart.getUTCMonth() + 1;
 
-            const year =
-                weekStart.getFullYear();
+const year =
+    weekStart.getUTCFullYear();
 
             session.startTransaction();
 
@@ -415,7 +447,9 @@ export const generateWeeklyRoster =
              * Get existing assignments.
              */
             const historyStart = new Date(weekStart);
-            historyStart.setDate(historyStart.getDate() - 6);
+            historyStart.setUTCDate(
+    historyStart.getUTCDate() - 6
+);
 
             const existingEntries =
                 await RosterEntry.find({
@@ -578,8 +612,13 @@ export const getGeneratedWeeklyRoster = async (req, res) => {
     const start = startOfDay(parsedStartDate);
 
     const end = new Date(start);
-    end.setDate(end.getDate() + 6);
-    end.setHours(23, 59, 59, 999);
+    end.setUTCDate(
+    end.getUTCDate() + 6
+);
+
+end.setUTCHours(
+    23, 59, 59, 999
+);
 
     const entries = await RosterEntry.find({
       date: {
@@ -1035,11 +1074,11 @@ export const updateGeneratedRosterById = async (req, res) => {
 
         let nightCount = 0;
 
-        const month =
-            newDate.getMonth() + 1;
+       const month =
+    newDate.getUTCMonth() + 1;
 
-        const year =
-            newDate.getFullYear();
+const year =
+    newDate.getUTCFullYear();
 
         const monthlyEntries =
             await RosterEntry.find({

@@ -1,4 +1,5 @@
 import { RosterEntry } from "../../models/Roster.js";
+
 import {
   getTeamRule,
   getRequiredShiftsForDate,
@@ -6,25 +7,35 @@ import {
   isSunday,
 } from "./teamRules.js";
 
+// --------------------------------------------------
+// Date Helpers — UTC Safe
+// --------------------------------------------------
+
 const getDateKey = (date) => {
   const d = new Date(date);
 
-  return `${d.getFullYear()}-${String(
-    d.getMonth() + 1
+  return `${d.getUTCFullYear()}-${String(
+    d.getUTCMonth() + 1
   ).padStart(2, "0")}-${String(
-    d.getDate()
+    d.getUTCDate()
   ).padStart(2, "0")}`;
 };
 
 const dayRange = (date) => {
   const start = new Date(date);
-  start.setHours(0, 0, 0, 0);
+
+  start.setUTCHours(0, 0, 0, 0);
 
   const end = new Date(start);
-  end.setHours(23, 59, 59, 999);
+
+  end.setUTCHours(23, 59, 59, 999);
 
   return { start, end };
 };
+
+// --------------------------------------------------
+// Team ↔ Shift Compatibility
+// --------------------------------------------------
 
 export const validateTeamShiftCompatibility = ({
   employee,
@@ -50,6 +61,10 @@ export const validateTeamShiftCompatibility = ({
   return null;
 };
 
+// --------------------------------------------------
+// Weekend Assignment Validation
+// --------------------------------------------------
+
 export const validateWeekendAssignment = async ({
   employeeId,
   date,
@@ -64,8 +79,8 @@ export const validateWeekendAssignment = async ({
 
   const otherDate = new Date(date);
 
-  otherDate.setDate(
-    otherDate.getDate() +
+  otherDate.setUTCDate(
+    otherDate.getUTCDate() +
       (isSaturday(date) ? 1 : -1)
   );
 
@@ -103,6 +118,10 @@ export const validateWeekendAssignment = async ({
   return null;
 };
 
+// --------------------------------------------------
+// Help Desk Night → Off Recovery
+// --------------------------------------------------
+
 export const validateHelpDeskNightRecovery = async ({
   employee,
   team = null,
@@ -121,10 +140,16 @@ export const validateHelpDeskNightRecovery = async ({
   }
 
   const first = new Date(date);
-  first.setDate(first.getDate() - 1);
+
+  first.setUTCDate(
+    first.getUTCDate() - 1
+  );
 
   const second = new Date(date);
-  second.setDate(second.getDate() - 2);
+
+  second.setUTCDate(
+    second.getUTCDate() - 2
+  );
 
   const { start } = dayRange(second);
   const { end } = dayRange(first);

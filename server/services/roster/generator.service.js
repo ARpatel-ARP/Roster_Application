@@ -29,27 +29,27 @@ const DAY_NAMES = [
 const getDateKey = (date) => {
   const d = new Date(date);
 
-  return `${d.getFullYear()}-${String(
-    d.getMonth() + 1
+  return `${d.getUTCFullYear()}-${String(
+    d.getUTCMonth() + 1
   ).padStart(2, "0")}-${String(
-    d.getDate()
+    d.getUTCDate()
   ).padStart(2, "0")}`;
 };
 
 const startOfDay = (date) => {
   const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
+  d.setUTCHours(0, 0, 0, 0);
   return d;
 };
 
 const endOfDay = (date) => {
   const d = new Date(date);
-  d.setHours(23, 59, 59, 999);
+  d.setUTCHours(23, 59, 59, 999);
   return d;
 };
 
 const getDayName = (date) =>
-  DAY_NAMES[new Date(date).getDay()];
+  DAY_NAMES[new Date(date).getUTCDay()];
 
 const isWorkingShift = (shift) =>
   shift?.name !== "Off";
@@ -88,16 +88,12 @@ const getWeekNumber = (date) => {
   const d = new Date(date);
 
   const first = new Date(
-    d.getFullYear(),
-    0,
-    1
+    Date.UTC(d.getUTCFullYear(), 0, 1)
   );
 
   return (
     Math.floor(
-      ((d - first) / 86400000 +
-        first.getDay()) /
-      7
+      ((d - first) / 86400000 + first.getUTCDay()) / 7
     ) + 1
   );
 };
@@ -163,8 +159,8 @@ const register = ({
     employee: employee._id,
     date: new Date(date),
     shift: shift._id,
-    month: date.getMonth() + 1,
-    year: date.getFullYear(),
+    month: date.getUTCMonth() + 1,
+year: date.getUTCFullYear(),
     isWeeklyOff,
     isHoliday,
     isLeave,
@@ -319,15 +315,15 @@ const getOppositeWeekendEmployeeIds = ({
    * Saturday -> check Sunday.
    * Sunday -> check Saturday.
    */
-  if (current.getDay() === 6) {
+  if (current.getUTCDay() === 6) {
     oppositeDate = new Date(current);
-    oppositeDate.setDate(
-      oppositeDate.getDate() + 1
+    oppositeDate.setUTCDate(
+      oppositeDate.getUTCDate() + 1
     );
-  } else if (current.getDay() === 0) {
+  } else if (current.getUTCDay() === 0) {
     oppositeDate = new Date(current);
-    oppositeDate.setDate(
-      oppositeDate.getDate() - 1
+    oppositeDate.setUTCDate(
+      oppositeDate.getUTCDate() - 1
     );
   } else {
     return new Set();
@@ -484,13 +480,13 @@ const isOnApprovedLeave = (
 const getOppositeWeekendDate = (date) => {
   const d = new Date(date);
 
-  if (d.getDay() === 6) {
-    d.setDate(d.getDate() + 1);
+  if (d.getUTCDay() === 6) {
+    d.setUTCDate(d.getUTCDate() + 1);
     return d;
   }
 
-  if (d.getDay() === 0) {
-    d.setDate(d.getDate() - 1);
+  if (d.getUTCDay() === 0) {
+    d.setUTCDate(d.getUTCDate() - 1);
     return d;
   }
 

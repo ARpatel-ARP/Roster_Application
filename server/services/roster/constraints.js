@@ -7,10 +7,10 @@ import {
 const getDateKey = (date) => {
   const d = new Date(date);
 
-  return `${d.getFullYear()}-${String(
-    d.getMonth() + 1
+  return `${d.getUTCFullYear()}-${String(
+    d.getUTCMonth() + 1
   ).padStart(2, "0")}-${String(
-    d.getDate()
+    d.getUTCDate()
   ).padStart(2, "0")}`;
 };
 
@@ -47,8 +47,8 @@ export const getPreviousWorkingDays = (
 
   const cursor = new Date(date);
 
-  cursor.setDate(
-    cursor.getDate() - 1
+  cursor.setUTCDate(
+    cursor.getUTCDate() - 1
   );
 
   while (count < 6) {
@@ -62,8 +62,8 @@ export const getPreviousWorkingDays = (
 
     count++;
 
-    cursor.setDate(
-      cursor.getDate() - 1
+    cursor.setUTCDate(
+      cursor.getUTCDate() - 1
     );
   }
 
@@ -112,8 +112,8 @@ export const hasNightMorningConflict = (
 
   const previous = new Date(date);
 
-  previous.setDate(
-    previous.getDate() - 1
+  previous.setUTCDate(
+    previous.getUTCDate() - 1
   );
 
   return (
@@ -172,8 +172,8 @@ export const hasWeekendConflict = (
 
   const other = new Date(date);
 
-  other.setDate(
-    other.getDate() +
+  other.setUTCDate(
+    other.getUTCDate() +
       (isSaturday(date) ? 1 : -1)
   );
 
@@ -215,12 +215,12 @@ export const hasHelpDeskNightRecoveryConflict = (
   const oneDayBefore = new Date(date);
   const twoDaysBefore = new Date(date);
 
-  oneDayBefore.setDate(
-    oneDayBefore.getDate() - 1
+  oneDayBefore.setUTCDate(
+    oneDayBefore.getUTCDate() - 1
   );
 
-  twoDaysBefore.setDate(
-    twoDaysBefore.getDate() - 2
+  twoDaysBefore.setUTCDate(
+    twoDaysBefore.getUTCDate() - 2
   );
 
   const previousDay =
@@ -247,13 +247,11 @@ export const hasHelpDeskNightRecoveryConflict = (
  */
 export const getWeekendPairs = (dates) => {
   const pairs = [];
-
   const seen = new Set();
 
   for (const date of dates) {
     const d = new Date(date);
-
-    const day = d.getDay();
+    const day = d.getUTCDay();
 
     if (day !== 6 && day !== 0) {
       continue;
@@ -262,12 +260,12 @@ export const getWeekendPairs = (dates) => {
     const saturday = new Date(d);
 
     if (day === 0) {
-      saturday.setDate(
-        d.getDate() - 1
+      saturday.setUTCDate(
+        d.getUTCDate() - 1
       );
     }
 
-    saturday.setHours(
+    saturday.setUTCHours(
       0,
       0,
       0,
@@ -276,8 +274,8 @@ export const getWeekendPairs = (dates) => {
 
     const sunday = new Date(saturday);
 
-    sunday.setDate(
-      saturday.getDate() + 1
+    sunday.setUTCDate(
+      saturday.getUTCDate() + 1
     );
 
     const key = getDateKey(saturday);

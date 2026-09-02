@@ -132,28 +132,27 @@ export const isConfiguredTeam = (teamName) =>
   Boolean(getTeamRule(teamName));
 
 export const isWeekend = (date) => {
-  const day = new Date(date).getDay();
-
+  const day = new Date(date).getUTCDay();
   return day === 0 || day === 6;
 };
 
 export const isSaturday = (date) =>
-  new Date(date).getDay() === 6;
+  new Date(date).getUTCDay() === 6;
 
 export const isSunday = (date) =>
-  new Date(date).getDay() === 0;
+  new Date(date).getUTCDay() === 0;
 
 export const getWeekendKey = (date) => {
   const d = new Date(date);
-  const day = d.getDay();
+  const day = d.getUTCDay();
 
   const saturday = new Date(d);
 
-  saturday.setDate(
-    d.getDate() - (day === 0 ? 1 : 0)
+  saturday.setUTCDate(
+    d.getUTCDate() - (day === 0 ? 1 : 0)
   );
 
-  saturday.setHours(0, 0, 0, 0);
+  saturday.setUTCHours(0, 0, 0, 0);
 
   return saturday.toISOString().slice(0, 10);
 };
