@@ -41,9 +41,27 @@ const navigation = [
   },
 ];
 
-function Sidebar() {
+function Sidebar({ sidebarOpen, setSidebarOpen }) {
   return (
-    <aside className="w-64 min-h-screen bg-white border-r border-slate-200 flex flex-col">
+   <aside
+  className={`
+    fixed inset-y-0 left-0 z-50 w-64
+    bg-white border-r border-slate-200
+    flex flex-col
+    transform transition-transform duration-300 ease-in-out
+    lg:static lg:translate-x-0
+    ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
+  `}
+>
+    <div className="lg:hidden flex justify-end p-3">
+  <button
+    onClick={() => setSidebarOpen(false)}
+    className="p-2 rounded-lg hover:bg-slate-100 text-slate-600"
+    aria-label="Close sidebar"
+  >
+    ✕
+  </button>
+</div>
       {/* Logo */}
       <div className="h-16 px-6 flex items-center border-b border-slate-200">
         <div className="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center">
@@ -64,6 +82,7 @@ function Sidebar() {
           return (
             <NavLink
               key={item.path}
+              onClick={() => setSidebarOpen(false)}
               to={item.path}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${

@@ -1,13 +1,22 @@
-import Sidebar from "./SideBar.jsx";
+import { useState } from "react";
+import Sidebar from "./SideBar";
 import Header from "./Header";
 
 function AppShell({ children }) {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   return (
     <div className="min-h-screen bg-slate-50 flex">
-      <Sidebar />
+      <Sidebar
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
+      />
 
       <div className="flex-1 min-w-0">
-        <Header />
+        <Header
+          sidebarOpen={sidebarOpen}
+          setSidebarOpen={setSidebarOpen}
+        />
 
         <main>{children}</main>
       </div>
