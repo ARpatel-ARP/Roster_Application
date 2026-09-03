@@ -11,6 +11,12 @@ function AppShell({ children }) {
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
       />
+      {sidebarOpen && (
+  <div
+    className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+    onClick={() => setSidebarOpen(false)}
+  />
+)}
 
       <div className="flex-1 min-w-0">
         <Header

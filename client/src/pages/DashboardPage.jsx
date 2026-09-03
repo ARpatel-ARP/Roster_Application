@@ -1,7 +1,14 @@
 import { useGetDashboardQuery } from "../services/api/dashApi.js";
+import { useGetEmployeesQuery } from "../services/api/employeeApi";
 
 function DashboardPage() {
   const { data, error, isLoading } = useGetDashboardQuery();
+
+  const {
+  data: employeesResponse,
+  isLoading: employeesLoading,
+  isError: employeesError,
+} = useGetEmployeesQuery({ page: 1, limit: 5 });
 
   if (isLoading) {
     return (
@@ -53,6 +60,7 @@ function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
+    {console.log("Employees:", employeesResponse)}
       <main className="max-w-7xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="mb-8">
