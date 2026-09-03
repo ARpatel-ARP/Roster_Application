@@ -1,11 +1,41 @@
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
-function App() {
+import LoginPage from "./pages/Login.jsx";
+import DashboardPage from "./pages/DashboardPage.jsx";
+import AppShell from "./components/layout/AppShell.jsx";
+import { useSelector } from "react-redux";
 
-  return (
-   <>
-   <h1 className="text-3xl font-bold text-blue-600">Rostet</h1>
-   </>
-  )
+function ProtectedRoute({ children }) {
+  const isAuthenticated = useSelector(
+    (state) => state.auth.isAuthenticated
+  );
+
+  return isAuthenticated ? children : <Navigate to="/login" replace />;
 }
 
-export default App
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <AppShell>
+                <DashboardPage />
+              </AppShell>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/"
+          element={<Navigate to="/login" replace />}
+        />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+export default App;
