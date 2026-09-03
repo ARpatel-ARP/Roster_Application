@@ -16,22 +16,14 @@ const getDateKey = (date) => {
 };
 
 const parseDateOnly = (value) => {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return null;
-  }
+  if (typeof value !== "string") return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
 
   const date = new Date(`${value}T00:00:00.000Z`);
 
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
+  if (Number.isNaN(date.getTime())) return null;
 
-  const [year, month, day] =
-    value.split("-").map(Number);
+  const [year, month, day] = value.split("-").map(Number);
 
   if (
     date.getUTCFullYear() !== year ||
@@ -954,15 +946,15 @@ export const updateGeneratedRosterById = async (req, res) => {
         const previousDate =
             new Date(newDate);
 
-        previousDate.setDate(
-            previousDate.getDate() - 1
+        previousDate.setUTCDate(
+            previousDate.getUTCDate() - 1
         );
 
         const nextDate =
             new Date(newDate);
 
-        nextDate.setDate(
-            nextDate.getDate() + 1
+        nextDate.setUTCDate(
+            nextDate.getUTCDate() + 1
         );
 
         const nearbyEntries =

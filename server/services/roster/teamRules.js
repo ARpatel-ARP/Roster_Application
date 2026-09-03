@@ -109,7 +109,11 @@ export const TEAM_RULES = {
       Night: 1,
     },
 
-    weekendCoverage: false,
+    weekendCoverage: true,
+
+    weekendShifts: {
+    General: 1,
+  },
 
     helpDesk: true,
     nightRotation: true,

@@ -838,6 +838,7 @@ export const generateRoster =
         "windows",
         "linux",
         "network",
+        "help desk",
       ]);
 
     for (const date of dates) {
