@@ -1263,6 +1263,7 @@ export async function updateRoster(
 
     const {
       employee: employeeDoc,
+      team: teamDoc,
     } = employeeResult;
 
     // --------------------------------------------------------
