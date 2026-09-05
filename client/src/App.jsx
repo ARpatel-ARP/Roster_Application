@@ -13,6 +13,9 @@ import TeamDetailsPage from "./pages/TeamDetailsPage.jsx";
 import LeavesPage from "./pages/LeavesPage.jsx";
 import LeaveDetailsPage from "./pages/LeaveDetailsPage.jsx";
 import LeaveFormPage from "./pages/LeaveFormPage.jsx";
+import RosterPage from "./pages/RosterPage.jsx";
+import RosterCreatePage from "./pages/RosterCreatePage.jsx";
+import RosterDetailsPage from "./pages/RosterDetailsPage.jsx";
 
 function ProtectedRoute({ children }) {
   const isAuthenticated = useSelector(
@@ -171,6 +174,40 @@ function App() {
             </ProtectedRoute>
           }
         />
+        {/* ROSTER ROUTES */}
+
+        <Route
+  path="/rosters"
+  element={
+    <ProtectedRoute>
+      <AppShell>
+        <RosterPage />
+      </AppShell>
+    </ProtectedRoute>
+  }
+/>
+
+<Route
+  path="/rosters/new"
+  element={
+    <ProtectedRoute>
+      <AppShell>
+        <RosterCreatePage />
+      </AppShell>
+    </ProtectedRoute>
+  }
+/>
+
+<Route
+  path="/rosters/:id"
+  element={
+    <ProtectedRoute>
+      <AppShell>
+        <RosterDetailsPage />
+      </AppShell>
+    </ProtectedRoute>
+  }
+/>
 
         <Route
           path="/"

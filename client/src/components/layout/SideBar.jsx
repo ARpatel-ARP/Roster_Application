@@ -31,7 +31,7 @@ const navigation = [
   },
   {
     name: "Roster",
-    path: "/roster",
+    path: "/rosters",
     icon: ClipboardList,
   },
   {
